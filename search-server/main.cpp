@@ -28,11 +28,18 @@ void TestExcludeStopWordsFromAddedDocumentContent() {
 
 void TestDocumentStatus() {
     SearchServer server;
-    server.AddDocument(0, ""s, DocumentStatus::ACTUAL, {});
+    server.AddDocument(0, "Charles Leclerc"s, DocumentStatus::IRRELEVANT, {});
     server.AddDocument(1, "what a beautiful takeover from Charles"s, DocumentStatus::ACTUAL, { 1, 1, 1 });
     server.AddDocument(2, "Charles Leclerc finished last lap in this race"s, DocumentStatus::BANNED, { 2, 2, 2 });
-    server.AddDocument(3, "and Leclerc is in pole position for tomorrow's race"s, DocumentStatus::ACTUAL, { 3, 3, 3 });
-    const vector<Document> result = server.FindTopDocuments("Leclerc", DocumentStatus::ACTUAL);
+    server.AddDocument(3, "and Leclerc is in pole position for tomorrow's race"s, DocumentStatus::REMOVED, { 3, 3, 3 });
+    
+    vector<Document> result = server.FindTopDocuments("Leclerc", DocumentStatus::IRRELEVANT);
+    ASSERT_EQUAL(result.at(0).id, 0);
+    result = server.FindTopDocuments("takeover", DocumentStatus::ACTUAL);
+    ASSERT_EQUAL(result.at(0).id, 1);
+    result = server.FindTopDocuments("race", DocumentStatus::BANNED);
+    ASSERT_EQUAL(result.at(0).id, 2);
+    result = server.FindTopDocuments("race", DocumentStatus::REMOVED);
     ASSERT_EQUAL(result.at(0).id, 3);
 }
 
@@ -74,12 +81,13 @@ void TestRelevance() {
     server.AddDocument(1, "what a beautiful takeover from Charles"s, DocumentStatus::ACTUAL, { 1, 1, 1 });
     server.AddDocument(2, "Charles Leclerc finished last lap in this race"s, DocumentStatus::ACTUAL, { 2, 2, 2 });
     server.AddDocument(3, "and Leclerc is in pole position for tomorrow's race"s, DocumentStatus::ACTUAL, { 3, 3, 3 });
+    
     const vector<Document> result = server.FindTopDocuments("Charles Leclerc");
-    double relevance = 1.01;
-    for (const auto& document : result) {
-        ASSERT(document.relevance <= relevance);
-        relevance = document.relevance;
-    }
+    
+    const double EPSILON = 1e-6;
+    vector<double> relevance = {0.287682, 0.0719205, 0.047947, 0.0319647};
+    for (int i = 0; i < result.size(); ++i)
+        ASSERT(abs(result.at(i).relevance - relevance[i]) < EPSILON);
 }
 
 // Функция TestSearchServer является точкой входа для запуска тестов
