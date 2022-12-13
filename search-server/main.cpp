@@ -95,31 +95,28 @@ public:
     }
 
     void AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings)  {
-        if(!documents_.count(document_id) && document_id >= 0){
-            const vector<string> words = SplitIntoWordsNoStop(document);
-            const double inv_word_count = 1.0 / words.size();
-            for (const string& word : words) {
-                if(IsValidWord(word)){
-                    word_to_document_freqs_[word][document_id] += inv_word_count;
-                }
-                else{
-                    throw invalid_argument("invalid character in document text");
-                }
-            }
-            documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
-        }
-        else{
+        if(documents_.count(document_id) || document_id < 0){
             throw invalid_argument("invalid document id");
         }
+
+        const vector<string> words = SplitIntoWordsNoStop(document); 
+            const double inv_word_count = 1.0 / words.size(); 
+            for (const string& word : words) { 
+                if(IsValidWord(word)){ 
+                    word_to_document_freqs_[word][document_id] += inv_word_count; 
+                } 
+                else{ 
+                    throw invalid_argument("invalid character in document text"); 
+                } 
+            } 
+
+        documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
+        noorder_id_.push_back(document_id);
     }
 
     template <typename DocumentPredicate>
     vector<Document> FindTopDocuments(const string& raw_query, DocumentPredicate document_predicate) const {
-        if(const auto query = ParseQuery(raw_query)){
-            for(const auto& word : query->minus_words)
-                    if((word.size() == 0) || (word.at(0) == '-')){
-                        throw invalid_argument("invalid minus words in query");
-                    }
+        Query query = ParseQuery(raw_query);
             vector<Document> result = FindAllDocuments(query, document_predicate);
 
             sort(result.begin(), result.end(),
@@ -134,10 +131,6 @@ public:
                 result.resize(MAX_RESULT_DOCUMENT_COUNT);
             }
             return result;
-        }
-        else{
-            throw invalid_argument("invalid character in query");
-        }
     }
 
     vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const {
@@ -156,9 +149,9 @@ public:
     }
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
-        if(const auto query = ParseQuery(raw_query)){
+            Query query = ParseQuery(raw_query);
             vector<string> matched_words;
-            for (const string& word : query->plus_words) {
+            for (const string& word : query.plus_words) {
                 if (word_to_document_freqs_.count(word) == 0) {
                     continue;
                 }
@@ -166,7 +159,7 @@ public:
                     matched_words.push_back(word);
                 }
             }
-            for (const string& word : query->minus_words) {
+            for (const string& word : query.minus_words) {
                 if((word.size() == 0) || (word.at(0) == '-')){
                         throw invalid_argument("invalid minus words in query");
                     }
@@ -179,16 +172,11 @@ public:
                 }
             }
             return tuple<vector<string>, DocumentStatus>{matched_words, documents_.at(document_id).status};
-        }
-        else{
-            throw invalid_argument("invalid character in query");
-        }
     }
     
     int GetDocumentId(int index) const {
         if(index >= 0 && index < documents_.size()){
-            auto it = next(documents_.begin(), index);
-            return it->first;
+            return noorder_id_.at(index);
         }
         else
             throw out_of_range("id is out of range");
@@ -209,6 +197,7 @@ private:
     const set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, DocumentData> documents_;
+    vector<int> noorder_id_;
 
     bool IsStopWord(const string& word) const {
         return stop_words_.count(word) > 0;
@@ -256,13 +245,16 @@ private:
         set<string> minus_words;
     };
 
-    optional<Query> ParseQuery(const string& text) const {
+    Query ParseQuery(const string& text) const {
         Query query;
         for (const string& word : SplitIntoWords(text)) {
             if(IsValidWord(word)){
                 const QueryWord query_word = ParseQueryWord(word);
                 if (!query_word.is_stop) {
                     if (query_word.is_minus) {
+                        if((query_word.data.size() == 0) || (query_word.data.at(0) == '-')){
+                            throw invalid_argument("invalid minus words in query");
+                        }
                         query.minus_words.insert(query_word.data);
                     } else {
                         query.plus_words.insert(query_word.data);
@@ -270,7 +262,7 @@ private:
                 }
             }
             else{
-                return nullopt;
+                throw invalid_argument("invalid character in query");;
             }
         }
         return query;
@@ -281,11 +273,11 @@ private:
         return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
     }
 
-    template <typename Q, typename DocumentPredicate>
-    vector<Document> FindAllDocuments(const Q& query,
+    template <typename DocumentPredicate>
+    vector<Document> FindAllDocuments(const Query& query,
                                       DocumentPredicate document_predicate) const {
         map<int, double> document_to_relevance;
-        for (const string& word : query->plus_words) {
+        for (const string& word : query.plus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
                 continue;
             }
@@ -298,7 +290,7 @@ private:
             }
         }
 
-        for (const string& word : query->minus_words) {
+        for (const string& word : query.minus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
                 continue;
             }
