@@ -117,20 +117,20 @@ public:
     template <typename DocumentPredicate>
     vector<Document> FindTopDocuments(const string& raw_query, DocumentPredicate document_predicate) const {
         Query query = ParseQuery(raw_query);
-            vector<Document> result = FindAllDocuments(query, document_predicate);
+        vector<Document> result = FindAllDocuments(query, document_predicate);
 
-            sort(result.begin(), result.end(),
-                 [](const Document& lhs, const Document& rhs) {
-                     if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
-                         return lhs.rating > rhs.rating;
-                     } else {
-                         return lhs.relevance > rhs.relevance;
-                     }
-                 });
-            if (result.size() > MAX_RESULT_DOCUMENT_COUNT) {
-                result.resize(MAX_RESULT_DOCUMENT_COUNT);
-            }
-            return result;
+        sort(result.begin(), result.end(),
+             [](const Document& lhs, const Document& rhs) {
+                 if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                     return lhs.rating > rhs.rating;
+                 } else {
+                     return lhs.relevance > rhs.relevance;
+                 }
+              });
+        if (result.size() > MAX_RESULT_DOCUMENT_COUNT) {
+            result.resize(MAX_RESULT_DOCUMENT_COUNT);
+        }
+        return result;
     }
 
     vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const {
@@ -175,11 +175,7 @@ public:
     }
     
     int GetDocumentId(int index) const {
-        if(index >= 0 && index < documents_.size()){
-            return noorder_id_.at(index);
-        }
-        else
-            throw out_of_range("id is out of range");
+        return noorder_id_.at(index);
     }
 
 private:
