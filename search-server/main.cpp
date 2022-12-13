@@ -248,21 +248,20 @@ private:
     Query ParseQuery(const string& text) const {
         Query query;
         for (const string& word : SplitIntoWords(text)) {
-            if(IsValidWord(word)){
-                const QueryWord query_word = ParseQueryWord(word);
-                if (!query_word.is_stop) {
-                    if (query_word.is_minus) {
-                        if((query_word.data.size() == 0) || (query_word.data.at(0) == '-')){
-                            throw invalid_argument("invalid minus words in query");
-                        }
-                        query.minus_words.insert(query_word.data);
-                    } else {
-                        query.plus_words.insert(query_word.data);
-                    }
-                }
+            if(!IsValidWord(word)){
+                throw invalid_argument("invalid character in query");
             }
-            else{
-                throw invalid_argument("invalid character in query");;
+            
+            const QueryWord query_word = ParseQueryWord(word);
+            if (!query_word.is_stop) {
+                if (query_word.is_minus) {
+                    if((query_word.data.size() == 0) || (query_word.data.at(0) == '-')){
+                        throw invalid_argument("invalid minus words in query");
+                    }
+                    query.minus_words.insert(query_word.data);
+                } else {
+                    query.plus_words.insert(query_word.data);
+                }
             }
         }
         return query;
